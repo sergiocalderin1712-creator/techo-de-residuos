@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Techo de residuos · Simulador</title>
+<meta name="description" content="Simulador del ABP de Física Calor y Ondas (CUC): ondas estacionarias, oscilador masa-resorte, decibelios, calor y presupuesto de un techo hecho con coco, llanta y aire.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Instrumento nocturno: una escena viva arriba (la casa) y pestañas de laboratorio abajo.
+   Motivo: la onda que se aplana. Noche de lluvia = azul tinta; coco = ámbar; sonido = cian. */
+:root{
+  --bg:#0A1322; --bg2:#0E1A2E; --panel:#122139; --panel2:#18294A; --line:#24385A;
+  --ink:#EAF0F7; --muted:#93A6C0; --dim:#5E7393;
+  --zinc:#C3CED8; --coco:#F0A94E; --sound:#4BD8EA; --leaf:#72DCA2; --warn:#FF7B5C; --sun:#FFC857; --rain:#7FA2D6;
+  --display:"Sora",ui-sans-serif,system-ui,sans-serif; --body:"Inter",ui-sans-serif,system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:radial-gradient(1200px 600px at 80% -10%,#1A2E52 0%,transparent 60%),var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:22px 48px;min-height:100vh}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:14px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--coco)}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(34px,6vw,64px);line-height:.95;margin:6px 0 0;letter-spacing:-.02em}
+h1 em{font-style:normal;color:var(--coco)}
+.lede{color:var(--muted);max-width:60ch;margin:10px 0 0;font-size:15.5px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+.card{background:linear-gradient(180deg,var(--panel) 0%,var(--bg2) 100%);border:1px solid var(--line);border-radius:16px}
+/* escena */
+.scene{padding:14px;display:flex;flex-direction:column;gap:12px}
+.scene-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.toggles{display:flex;flex-wrap:wrap;gap:8px}
+.tg{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:13.5px;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer;user-select:none}
+.tg input{position:absolute;opacity:0;pointer-events:none}
+.tg .dot{width:9px;height:9px;border-radius:50%;background:var(--dim);transition:background .2s,box-shadow .2s}
+.tg:has(input:checked){color:var(--ink);border-color:var(--c)}
+.tg:has(input:checked) .dot{background:var(--c);box-shadow:0 0 10px var(--c)}
+.tg:has(input:focus-visible){outline:2px solid var(--sound);outline-offset:2px}
+.mode{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px}
+.mode button{font:600 13px var(--body);color:var(--muted);background:transparent;border:0;border-radius:999px;padding:6px 13px;cursor:pointer}
+.mode button[aria-pressed="true"]{background:var(--panel2);color:var(--ink)}
+canvas{display:block;width:100%}
+#hero{aspect-ratio:16/7;border-radius:12px;background:var(--bg)}
+.meters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:820px){.meters{grid-template-columns:repeat(2,minmax(0,1fr))}#hero{aspect-ratio:4/3}}
+.m{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.m .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.m .v{font-family:var(--display);font-weight:700;font-size:26px;line-height:1.15;font-variant-numeric:tabular-nums;white-space:nowrap}
+.m .v small{font-family:var(--body);font-weight:500;font-size:13px;color:var(--muted);margin-left:3px}
+.m .s{font-size:12px;color:var(--muted)}
+/* pestañas */
+nav{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+nav a{font:600 14px var(--body);color:var(--muted);text-decoration:none;padding:10px 14px;border-bottom:2px solid transparent;margin-bottom:-1px}
+nav a:hover{color:var(--ink)}
+nav a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--coco)}
+nav a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--sound);outline-offset:2px}
+section{display:grid;grid-template-columns:minmax(0,330px) minmax(0,1fr);gap:16px}
+@media (max-width:860px){section{grid-template-columns:1fr}}
+.ctrl{padding:18px;display:flex;flex-direction:column;gap:15px;min-width:0}
+.ctrl h2{font-family:var(--display);font-weight:700;font-size:21px;line-height:1.15;margin:0}
+.ctrl .lead{margin:0;color:var(--muted);font-size:14px}
+.sl{display:flex;flex-direction:column;gap:6px}
+.sl label{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;font-weight:500}
+.sl output{font-family:var(--mono);font-weight:700;color:var(--sound);white-space:nowrap}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:99px;background:linear-gradient(90deg,var(--sound) var(--p,50%),var(--line) var(--p,50%));outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--ink);border:3px solid var(--sound);box-shadow:0 0 0 4px rgba(75,216,234,.15);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--ink);border:3px solid var(--sound);cursor:pointer}
+.formula{font-family:var(--mono);font-size:13px;color:var(--ink);background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:9px 11px;overflow-x:auto;white-space:nowrap}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:600 13.5px var(--body);color:var(--bg);background:var(--sound);border:0;border-radius:999px;padding:9px 15px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.seg{display:inline-flex;gap:6px}
+.seg button{font:600 13px var(--mono);color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 11px;cursor:pointer}
+.seg button[aria-pressed="true"]{color:var(--bg);background:var(--sound);border-color:var(--sound)}
+.stage{display:flex;flex-direction:column;gap:12px;min-width:0}
+.plot{padding:12px}
+.plot canvas{aspect-ratio:16/8}
+.reads{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:620px){.reads{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.r{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.r .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.r .v{font-family:var(--display);font-weight:700;font-size:22px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.r .v small{font-family:var(--body);font-weight:500;font-size:12.5px;color:var(--muted);margin-left:3px}
+.r.hi{border-color:var(--sound);box-shadow:inset 0 0 0 1px var(--sound)}
+.note{font-size:13.5px;color:var(--muted);margin:0}
+.note b{color:var(--ink);font-weight:600}
+.tbl{overflow-x:auto;padding:4px 0}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:8px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:500}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.g td{color:var(--coco);font-weight:600;font-size:12.5px;letter-spacing:.04em;text-transform:uppercase;padding-top:14px}
+tr.t td{font-weight:700;color:var(--ink);border-top:1px solid var(--muted)}
+.pill{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.free{color:var(--leaf);border-color:var(--leaf)}
+.budget-top{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:16px;align-items:center;padding:14px}
+@media (max-width:620px){.budget-top{grid-template-columns:1fr}}
+#donut{aspect-ratio:1/1;max-width:220px}
+.leg{display:flex;flex-direction:column;gap:8px;font-size:13.5px}
+.leg div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:8px;background:var(--c)}
+.leg b{font-family:var(--mono);font-weight:700}
+footer{color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);padding-top:14px;display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="top">
+  <div>
+    <div class="eyebrow">ABP · Física Calor y Ondas · Ingeniería Civil · CUC</div>
+    <h1>Techo de <em>residuos</em></h1>
+    <p class="lede">Una casa de zinc en Juan Mina, Barranquilla. Activa cada capa hecha con lo que la ciudad bota y mira qué le pasa al calor, al sonido y a la vibración.</p>
+  </div>
+  <div class="legend"><span style="--c:var(--sound)">sonido</span><span style="--c:var(--coco)">coco</span><span style="--c:var(--leaf)">aire / caucho</span><span style="--c:var(--warn)">calor</span></div>
+</div>
+
+<div class="card scene">
+  <div class="scene-bar">
+    <div class="toggles">
+      <label class="tg" style="--c:var(--coco)"><input type="checkbox" id="t-coco"><span class="dot"></span>Colchón de coco</label>
+      <label class="tg" style="--c:var(--leaf)"><input type="checkbox" id="t-llanta"><span class="dot"></span>Bandas de llanta</label>
+      <label class="tg" style="--c:var(--sound)"><input type="checkbox" id="t-vent"><span class="dot"></span>Cámara ventilada</label>
+    </div>
+    <div class="mode" role="group" aria-label="Escenario">
+      <button type="button" id="m-rain" aria-pressed="true">Noche de lluvia</button>
+      <button type="button" id="m-sun" aria-pressed="false">2:00 p.m. de sol</button>
+    </div>
+  </div>
+  <canvas id="hero" aria-label="Corte animado del techo de la casa"></canvas>
+  <div class="meters">
+    <div class="m"><div class="k">Calor que entra</div><div class="v" id="h-q"></div><div class="s" id="h-q2"></div></div>
+    <div class="m"><div class="k">Temperatura de la lámina</div><div class="v" id="h-t"></div><div class="s">a las 2:00 p.m.</div></div>
+    <div class="m"><div class="k">Vibración que pasa a la casa</div><div class="v" id="h-v"></div><div class="s">impactos de lluvia a 1 000 Hz</div></div>
+    <div class="m"><div class="k">Resonancia de la cámara</div><div class="v" id="h-f"></div><div class="s" id="h-f2"></div></div>
+  </div>
+</div>
+
+<nav aria-label="Laboratorios">
+  <a href="#camara">01 · Cámara que canta</a>
+  <a href="#llanta">02 · Resorte de llanta</a>
+  <a href="#ruido">03 · Decibelios</a>
+  <a href="#calor">04 · Calor</a>
+  <a href="#costos">05 · Presupuesto</a>
+</nav>
+
+<section data-view="camara">
+  <div class="card ctrl">
+    <h2>Ondas estacionarias en la cámara de aire</h2>
+    <p class="lead">El aire entre la lámina y el cielo raso es un tubo cerrado en los dos extremos: la misma ecuación de la cuerda fija del laboratorio 6.</p>
+    <div class="sl"><label for="c-T">Temperatura del aire <output id="o-cT"></output></label><input id="c-T" type="range" min="15" max="65" step="1" value="40"></div>
+    <div class="sl"><label for="c-L">Altura de la cámara L <output id="o-cL"></output></label><input id="c-L" type="range" min="4" max="25" step="1" value="10"></div>
+    <div class="sl"><label>Modo</label><div class="seg" id="c-n"><button type="button" data-n="1" aria-pressed="true">n = 1</button><button type="button" data-n="2" aria-pressed="false">n = 2</button><button type="button" data-n="3" aria-pressed="false">n = 3</button></div></div>
+    <label class="tg" style="--c:var(--coco)"><input type="checkbox" id="c-coco"><span class="dot"></span>Colchón de coco</label>
+    <div class="btns"><button class="btn" type="button" id="c-play">▶ Escuchar fₙ</button><button class="btn ghost" type="button" id="c-stop">Detener</button></div>
+    <div class="formula">fₙ = n·v / 2L &nbsp; · &nbsp; v = 331 + 0,6·T &nbsp; · &nbsp; λ = v / f</div>
+  </div>
+  <div class="stage">
+    <div class="card plot"><canvas id="cv-cam" aria-label="Onda estacionaria de presión en la cámara"></canvas></div>
+    <div class="reads">
+      <div class="r"><div class="k">Velocidad del sonido</div><div class="v" id="r-cv"></div></div>
+      <div class="r hi"><div class="k">Frecuencia fₙ</div><div class="v" id="r-cf"></div></div>
+      <div class="r"><div class="k">Longitud de onda</div><div class="v" id="r-cl"></div></div>
+      <div class="r"><div class="k">Periodo</div><div class="v" id="r-cp"></div></div>
+    </div>
+    <p class="note" id="c-msg"></p>
+  </div>
+</section>
+
+<section data-view="llanta" hidden>
+  <div class="card ctrl">
+    <h2>Bandas de llanta: oscilador masa–resorte</h2>
+    <p class="lead">La lámina es la masa y el caucho el resorte. Misma forma que el péndulo del laboratorio 5: T = 2π√(m/k).</p>
+    <div class="sl"><label for="l-E">Módulo del caucho E <output id="o-lE"></output></label><input id="l-E" type="range" min="1" max="8" step="0.5" value="3"></div>
+    <div class="sl"><label for="l-A">Área de la banda <output id="o-lA"></output></label><input id="l-A" type="range" min="4" max="40" step="1" value="15"></div>
+    <div class="sl"><label for="l-e">Espesor de la banda <output id="o-le"></output></label><input id="l-e" type="range" min="0.5" max="3" step="0.1" value="1"></div>
+    <div class="sl"><label for="l-m">Masa sobre cada banda <output id="o-lm"></output></label><input id="l-m" type="range" min="0.5" max="4" step="0.05" value="1.25"></div>
+    <div class="sl"><label for="l-z">Amortiguamiento ζ <output id="o-lz"></output></label><input id="l-z" type="range" min="0.01" max="0.4" step="0.01" value="0.05"></div>
+    <div class="sl"><label for="l-f">Frecuencia que excita <output id="o-lf"></output></label><input id="l-f" type="range" min="0" max="1000" step="1" value="768"></div>
+    <div class="formula">k = E·A / e &nbsp; · &nbsp; fₙ = (1/2π)·√(k/m) &nbsp; · &nbsp; r = f / fₙ</div>
+  </div>
+  <div class="stage">
+    <div class="card plot"><canvas id="cv-tr" aria-label="Curva de transmisibilidad"></canvas></div>
+    <div class="reads">
+      <div class="r"><div class="k">Rigidez k</div><div class="v" id="r-lk"></div></div>
+      <div class="r hi"><div class="k">Frecuencia natural</div><div class="v" id="r-lf"></div></div>
+      <div class="r"><div class="k">Periodo T</div><div class="v" id="r-lT"></div></div>
+      <div class="r"><div class="k">Transmisibilidad</div><div class="v" id="r-lTR"></div></div>
+    </div>
+    <p class="note" id="l-msg"></p>
+  </div>
+</section>
+
+<section data-view="ruido" hidden>
+  <div class="card ctrl">
+    <h2>Nivel de intensidad sonora</h2>
+    <p class="lead">El oído responde al logaritmo de la intensidad: 10 dB menos se oye como la mitad.</p>
+    <div class="sl"><label for="s-b">Lluvia dentro de la casa hoy (ejemplo) <output id="o-sb"></output></label><input id="s-b" type="range" min="50" max="95" step="1" value="75"></div>
+    <div class="sl"><label for="s-d">Reducción del techo <output id="o-sd"></output></label><input id="s-d" type="range" min="0" max="30" step="1" value="15"></div>
+    <div class="formula">β = 10·log(I / I₀) &nbsp; · &nbsp; I₀ = 10⁻¹² W/m² &nbsp; · &nbsp; I₂/I₁ = 10^(−Δβ/10)</div>
+    <p class="note">Meta del equipo: <b>15 dB</b>. Referencia de laboratorio: teja metálica sola 74 dB, con lana de vidrio y cinta elastomérica 52 dB (Wittmann et al., 2022). El nivel inicial de 75 dB es un ejemplo, no una medición.</p>
+  </div>
+  <div class="stage">
+    <div class="card plot"><canvas id="cv-db" aria-label="Escala de decibelios antes y después"></canvas></div>
+    <div class="reads">
+      <div class="r"><div class="k">Intensidad hoy</div><div class="v" id="r-s1"></div></div>
+      <div class="r"><div class="k">Con el techo</div><div class="v" id="r-s2"></div></div>
+      <div class="r hi"><div class="k">Veces menos</div><div class="v" id="r-s3"></div></div>
+      <div class="r"><div class="k">Se oye al</div><div class="v" id="r-s4"></div></div>
+    </div>
+  </div>
+</section>
+
+<section data-view="calor" hidden>
+  <div class="card ctrl">
+    <h2>Calor que entra a las 2:00 p.m.</h2>
+    <p class="lead">Balance de energía en la lámina, la cámara y el colchón: un sistema lineal 3 × 3. Techo de 50 m².</p>
+    <div class="sl"><label for="q-a">Absorción solar de la lámina α <output id="o-qa"></output></label><input id="q-a" type="range" min="0.3" max="0.9" step="0.01" value="0.68"></div>
+    <div class="sl"><label for="q-e">Espesor del colchón de coco <output id="o-qe"></output></label><input id="q-e" type="range" min="0" max="10" step="0.5" value="5"></div>
+    <label class="tg" style="--c:var(--sound)"><input type="checkbox" id="q-v" checked><span class="dot"></span>Cámara ventilada</label>
+    <div class="formula">αG = hₒ(Tₛ − Tₒ) + (Tₛ − Tᵢ)/R &nbsp; · &nbsp; Q̇ = A·ΔT / R</div>
+    <p class="note">Supuestos: G = 920 W/m², Tₒ = Tᵢ = 34 °C, λ del coco = 0,06 W/(m·K). α = 0,68 calibrado con la lámina a 65 °C. Mueve α: la solución no depende de qué tan reflectante sea el zinc.</p>
+  </div>
+  <div class="stage">
+    <div class="card plot"><canvas id="cv-heat" aria-label="Calor que entra según la absorción de la lámina"></canvas></div>
+    <div class="reads">
+      <div class="r"><div class="k">Techo actual</div><div class="v" id="r-q0"></div></div>
+      <div class="r hi"><div class="k">Tu techo</div><div class="v" id="r-q1"></div></div>
+      <div class="r"><div class="k">Reducción</div><div class="v" id="r-q2"></div></div>
+      <div class="r"><div class="k">Lámina</div><div class="v" id="r-q3"></div></div>
+    </div>
+  </div>
+</section>
+
+<section data-view="costos" hidden>
+  <div class="card ctrl">
+    <h2>Presupuesto por vivienda</h2>
+    <p class="lead">Materiales y tratamiento del coco y las llantas, en pesos colombianos (noviembre de 2026). Los ítems marcados como supuesto deben cotizarse.</p>
+    <div class="sl"><label for="b-a">Área de cubierta <output id="o-ba"></output></label><input id="b-a" type="range" min="20" max="120" step="5" value="50"></div>
+    <div class="sl"><label for="b-f">Familias que comparten herramientas y ácido bórico <output id="o-bf"></output></label><input id="b-f" type="range" min="1" max="10" step="1" value="1"></div>
+    <label class="tg" style="--c:var(--warn)"><input type="checkbox" id="b-l"><span class="dot"></span>Pagar mano de obra ($80.000 por jornal)</label>
+    <div class="reads" style="grid-template-columns:1fr">
+      <div class="r hi"><div class="k">Total por vivienda</div><div class="v" id="r-b1"></div></div>
+    </div>
+    <div class="reads" style="grid-template-columns:1fr 1fr">
+      <div class="r"><div class="k">Por m²</div><div class="v" id="r-b2"></div></div>
+      <div class="r"><div class="k">Al mes · 10 años</div><div class="v" id="r-b3"></div></div>
+    </div>
+  </div>
+  <div class="stage">
+    <div class="card budget-top"><canvas id="donut" aria-label="Distribución del presupuesto"></canvas><div class="leg" id="b-leg"></div></div>
+    <div class="card tbl"><table id="b-tab"><thead><tr><th>Ítem</th><th class="n">Cant.</th><th class="n">Subtotal</th><th>Origen</th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<footer><span>Modelo físico del equipo ABP · Ingeniería Civil · Universidad de la Costa. Resultados de modelo, por validar con maquetas.</span><span>Fuentes: Araújo et al. (2025), Wittmann et al. (2022); precios de Homecenter, Falabella e Infoagro.</span></footer>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const C=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const nf=(x,d=0)=>x.toLocaleString('es-CO',{minimumFractionDigits:d,maximumFractionDigits:d});
+const cop=x=>'$'+Math.round(x).toLocaleString('es-CO');
+const RM=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function ctx(cv){const r=cv.getBoundingClientRect();const d=Math.min(devicePixelRatio||1,2);const w=Math.max(280,r.width),h=Math.max(160,r.height);
+  if(cv.width!==Math.round(w*d)||cv.height!==Math.round(h*d)){cv.width=Math.round(w*d);cv.height=Math.round(h*d)}const c=cv.getContext('2d');c.setTransform(d,0,0,d,0,0);c.clearRect(0,0,w,h);return {c,w,h}}
+function rgba(hex,a){const h=hex.replace('#','');const n=parseInt(h.length===3?h.split('').map(x=>x+x).join(''):h,16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`}
+document.querySelectorAll('input[type=range]').forEach(r=>{const f=()=>r.style.setProperty('--p',((r.value-r.min)/(r.max-r.min)*100)+'%');r.addEventListener('input',f);f()});
+
+/* ===== Física compartida ===== */
+const A=50,To=34,Ti=34,G=920,hr0=4*5.67e-8*Math.pow(320,3),hc=12.8,R0=0.17,ho=e=>hc+hr0*e;
+function simple(aG,eps,R){const dT=aG/(ho(eps)+1/R);const Ts=To+dT;return {Ts,Q:(Ts-Ti)/R*A/1000}}
+function solve3(M,b){const a=M.map((r,i)=>[...r,b[i]]);for(let i=0;i<3;i++){let p=i;for(let j=i+1;j<3;j++)if(Math.abs(a[j][i])>Math.abs(a[p][i]))p=j;[a[i],a[p]]=[a[p],a[i]];for(let j=i+1;j<3;j++){const f=a[j][i]/a[i][i];for(let k=i;k<4;k++)a[j][k]-=f*a[i][k]}}const x=[0,0,0];for(let i=2;i>=0;i--){let s=a[i][3];for(let k=i+1;k<3;k++)s-=a[i][k]*x[k];x[i]=s/a[i][i]}return x}
+function vent(aG,Rins){const hcz=4,hct=4,ee=1/(1/0.2+1/0.9-1),hrad=ee*hr0;let md=0.05,Ts,Tt,Tc;
+  for(let it=0;it<200;it++){const mcp=md*1005/A;[Ts,Tt,Tc]=solve3([[ho(0.2)+hcz+hrad,-hrad,-hcz],[-hrad,hrad+hct+1/Rins,-hct],[-hcz,-hct,hcz+hct+mcp]],[aG+ho(0.2)*To,Ti/Rins,mcp*To]);
+    const v=0.6*Math.sqrt(2*9.81*1.3*Math.max(Tc-To,0.1)/(To+273.15));const mn=1.15*v;if(Math.abs(mn-md)<1e-6)break;md=0.5*md+0.5*mn}
+  return {Ts,Q:(Tt-Ti)/Rins*A/1000}}
+function roof(alpha,eCoco,isVent){const Rc=eCoco/0.06,aG=alpha*G;if(isVent)return vent(aG,R0+Rc);return simple(aG,0.2,R0+(eCoco>0?0.16:0)+Rc)}
+const TR=(f,fn,z)=>{const r=f/fn;return Math.sqrt((1+(2*z*r)**2)/((1-r*r)**2+(2*z*r)**2))};
+const FN_REF=Math.sqrt((3e6*15e-4/0.01)/1.25)/(2*Math.PI);
+const TR_REF=TR(1000,FN_REF,0.05);
+
+/* ===== Escena principal ===== */
+let mode='rain';
+$('m-rain').onclick=()=>{mode='rain';$('m-rain').setAttribute('aria-pressed',true);$('m-sun').setAttribute('aria-pressed',false);updHero()};
+$('m-sun').onclick=()=>{mode='sun';$('m-sun').setAttribute('aria-pressed',true);$('m-rain').setAttribute('aria-pressed',false);updHero()};
+['t-coco','t-llanta','t-vent'].forEach(id=>$(id).addEventListener('change',updHero));
+let H={};
+function updHero(){const coco=$('t-coco').checked,ll=$('t-llanta').checked,vv=$('t-vent').checked;
+  const base=simple(0.68*G,0.2,R0),cur=roof(0.68,coco?0.05:0,vv);
+  const tr=ll?TR_REF:1;const fcav=(331+0.6*40)/(2*0.10);
+  H={coco,ll,vv,base,cur,tr,fcav};
+  $('h-q').innerHTML=nf(cur.Q,2)+'<small>kJ/s</small>';$('h-q2').textContent=cur.Q<base.Q-0.01?('−'+nf(100*(1-cur.Q/base.Q))+' % frente a hoy'):'como hoy';
+  $('h-t').innerHTML=nf(cur.Ts)+'<small>°C</small>';
+  $('h-v').innerHTML=(ll?nf(tr*100,1):'100')+'<small>%</small>';
+  $('h-f').innerHTML=nf(fcav)+'<small>Hz</small>';$('h-f2').textContent=coco?'amortiguada por el coco':'resuena libre';}
+const drops=[],ripples=[];let lastT=0;
+function drawHero(t){const cv=$('hero');const {c,w,h}=ctx(cv);const dt=Math.min(50,t-lastT||16)/1000;lastT=t;
+  const sky=c.createLinearGradient(0,0,0,h);
+  if(mode==='rain'){sky.addColorStop(0,'#0B1630');sky.addColorStop(1,'#0A1322')}else{sky.addColorStop(0,'#2A3C63');sky.addColorStop(.5,'#16264A');sky.addColorStop(1,'#0E1A2E')}
+  c.fillStyle=sky;c.fillRect(0,0,w,h);
+  const L=w*0.06,R=w*0.94,yZ=h*0.30,yB=yZ+h*0.05,yCav=yB+h*0.03,cavH=h*0.24,yCeil=yCav+cavH,yRoom=yCeil+(H.coco?h*0.07:h*0.012);
+  // sol
+  if(mode==='sun'){const sx=w*0.12,sy=h*0.12,r=h*0.06;const g=c.createRadialGradient(sx,sy,0,sx,sy,r*4);g.addColorStop(0,rgba(C('--sun'),.55));g.addColorStop(1,rgba(C('--sun'),0));c.fillStyle=g;c.fillRect(0,0,w,h*0.5);
+    c.fillStyle=C('--sun');c.beginPath();c.arc(sx,sy,r,0,7);c.fill();
+    c.strokeStyle=rgba(C('--sun'),.5);c.lineWidth=2;for(let i=0;i<7;i++){const x=w*(0.25+i*0.1),o=((t/30+i*40)%60);c.beginPath();c.moveTo(x-30+o*0.3,yZ-70+o);c.lineTo(x-24+o*0.3,yZ-60+o);c.stroke()}}
+  // lluvia
+  if(mode==='rain'){const target=Math.round(w/9);while(drops.length<target)drops.push({x:Math.random()*w,y:Math.random()*yZ,v:300+Math.random()*250});
+    c.strokeStyle=rgba(C('--rain'),.7);c.lineWidth=1.3;
+    for(const d of drops){d.y+=d.v*dt;if(d.y>=yZ-4){if(d.x>L&&d.x<R&&Math.random()<0.5)ripples.push({x:d.x,t:0});d.y=-10-Math.random()*60;d.x=Math.random()*w}
+      c.beginPath();c.moveTo(d.x,d.y);c.lineTo(d.x-1.5,d.y-10);c.stroke()}}
+  // vibración de la lámina por impactos
+  for(let i=ripples.length-1;i>=0;i--){ripples[i].t+=dt;if(ripples[i].t>0.6)ripples.splice(i,1)}
+  const disp=x=>{let s=0;for(const r of ripples){const dx=x-r.x;s+=Math.exp(-r.t*7)*Math.sin(dx*0.09-r.t*40)*Math.exp(-Math.abs(dx)/90)}return s};
+  // lámina corrugada
+  c.lineWidth=3.2;c.strokeStyle=C('--zinc');c.beginPath();for(let x=L;x<=R;x+=3){const y=yZ+Math.sin(x*0.12)*3+disp(x)*4;x===L?c.moveTo(x,y):c.lineTo(x,y)}c.stroke();
+  c.fillStyle=C('--muted');c.font='600 12px '+C('--mono');c.fillText('LÁMINA DE ZINC',L,yZ-14);
+  // ondas de sonido de impacto (arriba)
+  if(mode==='rain')for(const r of ripples){c.strokeStyle=rgba(C('--sound'),Math.max(0,.5-r.t));c.lineWidth=1.2;c.beginPath();c.arc(r.x,yZ,6+r.t*60,Math.PI*1.1,Math.PI*1.9);c.stroke()}
+  // correas y bandas
+  const nB=6;for(let i=0;i<nB;i++){const x=L+(R-L)*(i+0.5)/nB;const vib=(mode==='rain'?disp(x)*8*H.tr:0);
+    if(H.ll){c.fillStyle='#1B1B1B';c.fillRect(x-14,yZ+4,28,h*0.018);c.strokeStyle=C('--leaf');c.lineWidth=1;c.strokeRect(x-14,yZ+4,28,h*0.018)}
+    c.fillStyle='#8A6A44';c.fillRect(x-12+vib,yB-2,24,h*0.035);
+    if(mode==='rain'&&Math.abs(vib)>0.6){c.strokeStyle=rgba(C('--warn'),.8);c.lineWidth=1.5;for(const s of [-1,1]){c.beginPath();c.moveTo(x+s*18,yB+2);c.lineTo(x+s*24,yB+8);c.stroke()}}}
+  c.fillStyle=H.ll?C('--leaf'):C('--muted');c.font='600 11px '+C('--mono');{const tx=H.ll?'CORREAS SOBRE CAUCHO DE LLANTA':'CORREAS: VIBRAN CON CADA GOTA';c.fillText(tx,R-c.measureText(tx).width,yZ-14)}
+  // cámara
+  const cg=c.createLinearGradient(0,yCav,0,yCeil);cg.addColorStop(0,rgba(C('--sound'),.06));cg.addColorStop(1,rgba(C('--sound'),.02));c.fillStyle=cg;c.fillRect(L,yCav+18,R-L,cavH-18);
+  // onda estacionaria en la cámara (modo 1, horizontal stripes)
+  const amp=(mode==='rain'?1:0.35)*(H.coco?0.18:1);const ph=RM?1:Math.cos(t/220);
+  for(let k=0;k<3;k++){const yy=yCav+18+(cavH-18)*(k+1)/4;c.strokeStyle=rgba(C('--sound'),0.35+0.4*amp);c.lineWidth=2;c.beginPath();
+    for(let x=L;x<=R;x+=4){const y=yy+Math.sin((x-L)/(R-L)*Math.PI*6+t/300+k)*10*amp*ph;x===L?c.moveTo(x,y):c.lineTo(x,y)}c.stroke()}
+  c.fillStyle=C('--sound');c.font='600 11px '+C('--mono');c.fillText('CÁMARA DE AIRE · '+nf(H.fcav)+' Hz '+(H.coco?'(AMORTIGUADA)':'(RESUENA)'),L+8,yCav+34);
+  // ventilación
+  if(H.vv){c.strokeStyle=rgba(C('--leaf'),.85);c.fillStyle=rgba(C('--leaf'),.85);c.lineWidth=2;for(let i=0;i<5;i++){const p=((t/18+i*90)%(R-L));const x=L+p,y=yCeil-cavH*0.25-p*0.05;c.beginPath();c.moveTo(x,y);c.lineTo(x+22,y-2);c.stroke();c.beginPath();c.moveTo(x+26,y-2);c.lineTo(x+18,y-7);c.lineTo(x+18,y+3);c.fill()}
+    c.fillStyle=C('--leaf');c.font='600 11px '+C('--mono');c.fillText('AIRE CALIENTE → CUMBRERA',R-210,yCeil-8)}
+  // colchón de coco
+  if(H.coco){const hh=h*0.07;const g=c.createLinearGradient(0,yCeil,0,yCeil+hh);g.addColorStop(0,'#C88A3D');g.addColorStop(1,'#8E5F2A');c.fillStyle=g;c.fillRect(L,yCeil,R-L,hh);
+    c.strokeStyle='rgba(255,220,160,.35)';c.lineWidth=1;for(let x=L;x<R;x+=7){c.beginPath();c.moveTo(x,yCeil+3);c.quadraticCurveTo(x+5,yCeil+hh/2,x+1,yCeil+hh-3);c.stroke()}
+    c.fillStyle='#FFF3E0';c.font='700 12px '+C('--mono');c.fillText('COLCHÓN DE ESTOPA DE COCO EN COSTALES · 5 cm',L+10,yCeil+hh/2+4)}
+  else{c.fillStyle=C('--line');c.fillRect(L,yCeil,R-L,h*0.012)}
+  // habitación
+  const rg=c.createLinearGradient(0,yRoom,0,h);const heatA=Math.min(1,H.cur.Q/9.2);
+  rg.addColorStop(0,mode==='sun'?rgba(C('--warn'),0.12+0.4*heatA):rgba(C('--rain'),0.06));rg.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=rg;c.fillRect(L,yRoom,R-L,h-yRoom);
+  if(mode==='sun'){const n=Math.max(1,Math.round(9*heatA));c.strokeStyle=rgba(C('--warn'),.85);c.lineWidth=2.2;for(let i=0;i<n;i++){const x=L+(R-L)*(i+0.5)/n;const o=(t/12+i*23)%30;c.beginPath();c.moveTo(x,yRoom+4+o);c.lineTo(x,yRoom+18+o);c.stroke();c.beginPath();c.moveTo(x-4,yRoom+14+o);c.lineTo(x,yRoom+20+o);c.lineTo(x+4,yRoom+14+o);c.stroke()}}
+  else{const loud=(H.coco?0.35:1)*(H.ll?0.75:1);for(let i=0;i<3;i++){const r=((t/14+i*40)%120);c.strokeStyle=rgba(C('--sound'),Math.max(0,(1-r/120))*0.6*loud);c.lineWidth=2;c.beginPath();c.arc(w/2,yRoom,r*loud+8,0.15*Math.PI,0.85*Math.PI);c.stroke()}}
+  c.fillStyle=C('--ink');c.font='600 13px '+C('--body');c.fillText(mode==='sun'?'Interior de la casa · calor que baja: '+nf(H.cur.Q,2)+' kJ/s':'Interior de la casa · lo que llega al oído',L,h-12);
+}
+
+/* ===== 01 cámara ===== */
+let camN=1;document.querySelectorAll('#c-n button').forEach(b=>b.onclick=()=>{camN=+b.dataset.n;document.querySelectorAll('#c-n button').forEach(x=>x.setAttribute('aria-pressed',x===b));updCam()});
+const camS=()=>{const T=+$('c-T').value,L=+$('c-L').value/100,v=331+0.6*T,f=camN*v/(2*L);return {T,L,v,f,lam:v/f,coco:$('c-coco').checked}};
+function updCam(){const s=camS();$('o-cT').textContent=s.T+' °C';$('o-cL').textContent=nf(s.L*100)+' cm';
+  $('r-cv').innerHTML=nf(s.v,1)+'<small>m/s</small>';$('r-cf').innerHTML=nf(s.f)+'<small>Hz</small>';$('r-cl').innerHTML=nf(s.lam*100,1)+'<small>cm</small>';$('r-cp').innerHTML=nf(1000/s.f,3)+'<small>ms</small>';
+  const band=s.f>=1000&&s.f<=4000;$('c-msg').innerHTML=(band?'<b>Cae en 1 000–4 000 Hz</b>, donde suenan los impactos de la lluvia y el oído es más sensible. ':'Fuera de la banda de 1 000–4 000 Hz. ')+(s.coco?'Con el colchón de coco la onda se apaga: la fibra porosa convierte el sonido en calor.':'Sin colchón la cámara resuena libre y refuerza ese tono.');
+  if(osc){osc.frequency.setTargetAtTime(Math.min(s.f,8000),ac.currentTime,0.02);gain.gain.setTargetAtTime(s.coco?0.015:0.07,ac.currentTime,0.05)}}
+function drawCam(t){const cv=$('cv-cam');if(cv.closest('[hidden]'))return;const {c,w,h}=ctx(cv);const s=camS();
+  const L=70,R=w-24,T=44,B=h-44,mid=(T+B)/2;
+  c.fillStyle=C('--bg');c.fillRect(L,T,R-L,B-T);
+  // lámina arriba y fondo abajo (horizontal tube: x = altura)
+  c.fillStyle=C('--zinc');c.fillRect(L-8,T,8,B-T);c.fillStyle=s.coco?C('--coco'):C('--dim');c.fillRect(R,T,s.coco?14:6,B-T);
+  c.fillStyle=C('--muted');c.font='600 11px '+C('--mono');c.save();c.translate(L-16,B);c.rotate(-Math.PI/2);c.fillText('LÁMINA',0,0);c.restore();
+  c.save();c.translate(R+(s.coco?30:22),B);c.rotate(-Math.PI/2);c.fillText(s.coco?'COCO':'CIELO',0,0);c.restore();
+  const amp=(s.coco?0.22:1)*(B-T)*0.38,ph=RM?1:Math.cos(t/380);
+  // envolvente
+  c.fillStyle=rgba(C('--sound'),.08);c.beginPath();for(let i=0;i<=200;i++){const x=L+(R-L)*i/200,p=Math.abs(Math.cos(camN*Math.PI*i/200));const y=mid-amp*p;i?c.lineTo(x,y):c.moveTo(x,y)}for(let i=200;i>=0;i--){const x=L+(R-L)*i/200,p=Math.abs(Math.cos(camN*Math.PI*i/200));c.lineTo(x,mid+amp*p)}c.fill();
+  // onda
+  c.shadowColor=C('--sound');c.shadowBlur=14;c.strokeStyle=C('--sound');c.lineWidth=3.5;c.beginPath();
+  for(let i=0;i<=240;i++){const x=L+(R-L)*i/240,y=mid-amp*Math.cos(camN*Math.PI*i/240)*ph;i?c.lineTo(x,y):c.moveTo(x,y)}c.stroke();c.shadowBlur=0;
+  c.setLineDash([4,6]);c.strokeStyle=C('--dim');c.lineWidth=1;c.beginPath();c.moveTo(L,mid);c.lineTo(R,mid);c.stroke();c.setLineDash([]);
+  for(let k=0;k<camN;k++){const x=L+(R-L)*(k+0.5)/camN;c.fillStyle=C('--warn');c.beginPath();c.arc(x,mid,5,0,7);c.fill();c.fillStyle=C('--warn');c.font='600 10.5px '+C('--mono');c.fillText('NODO',x-14,mid+20)}
+  c.fillStyle=C('--ink');c.font='700 15px '+C('--display');c.fillText('Presión en la cámara · n = '+camN,L,T-16);
+  c.fillStyle=C('--sound');c.font='700 15px '+C('--mono');const ft=nf(s.f)+' Hz';c.fillText(ft,R-c.measureText(ft).width,T-16);
+  c.fillStyle=C('--muted');c.font='500 12px '+C('--body');c.fillText('0 cm',L,B+20);const lt=nf(s.L*100)+' cm';c.fillText(lt,R-c.measureText(lt).width,B+20);c.fillText('λ = '+nf(s.lam*100,1)+' cm',(L+R)/2-30,B+20);}
+let ac=null,osc=null,gain=null;
+$('c-play').onclick=()=>{try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(osc)return;osc=ac.createOscillator();gain=ac.createGain();osc.type='sine';gain.gain.value=0;osc.connect(gain).connect(ac.destination);osc.start();updCam()}catch(e){$('c-msg').textContent='El navegador no permitió reproducir sonido.'}};
+$('c-stop').onclick=()=>{if(osc){gain.gain.setTargetAtTime(0,ac.currentTime,0.03);const o=osc;setTimeout(()=>{try{o.stop()}catch(e){}},250);osc=null}};
+['c-T','c-L','c-coco'].forEach(id=>$(id).addEventListener('input',updCam));
+
+/* ===== 02 llanta ===== */
+const llS=()=>{const E=+$('l-E').value*1e6,Ar=+$('l-A').value*1e-4,e=+$('l-e').value/100,m=+$('l-m').value,z=+$('l-z').value;const k=E*Ar/e,fn=Math.sqrt(k/m)/(2*Math.PI);const f=10*Math.pow(400,+$('l-f').value/1000);return {E,Ar,e,m,z,k,fn,f}};
+function updLl(){const s=llS();$('o-lE').textContent=nf(s.E/1e6,1)+' MPa';$('o-lA').textContent=nf(s.Ar*1e4)+' cm²';$('o-le').textContent=nf(s.e*100,1)+' cm';$('o-lm').textContent=nf(s.m,2)+' kg';$('o-lz').textContent=nf(s.z,2);$('o-lf').textContent=nf(s.f)+' Hz';
+  $('r-lk').innerHTML=nf(s.k/1e5,2)+'<small>×10⁵ N/m</small>';$('r-lf').innerHTML=nf(s.fn)+'<small>Hz</small>';$('r-lT').innerHTML=nf(1000/s.fn,2)+'<small>ms</small>';
+  const tr=TR(s.f,s.fn,s.z);$('r-lTR').innerHTML=(tr<0.1?nf(tr,3):nf(tr,2))+'<small>'+(tr<1?'−'+nf(-20*Math.log10(tr))+' dB':'amplifica')+'</small>';
+  const r=s.f/s.fn;$('l-msg').innerHTML=r<0.8?'<b>Por debajo de la resonancia:</b> el caucho transmite casi todo.':r<Math.SQRT2?'<b>Cerca de la resonancia:</b> la vibración se amplifica. Este rango hay que evitarlo.':'<b>Zona de aislamiento:</b> por encima de √2·fₙ = '+nf(s.fn*Math.SQRT2)+' Hz, cuanto más alta la frecuencia, menos pasa a la estructura.';}
+function drawTr(t){const cv=$('cv-tr');if(cv.closest('[hidden]'))return;const {c,w,h}=ctx(cv);const s=llS();
+  const L=60,R=w-18,T=28,B=h-44,fx=f=>L+(R-L)*Math.log10(f/10)/Math.log10(400),lo=0.003,hi=30,ty=v=>T+(B-T)*(Math.log10(hi)-Math.log10(Math.min(hi,Math.max(lo,v))))/(Math.log10(hi)-Math.log10(lo));
+  // zonas
+  c.fillStyle=rgba(C('--warn'),.08);c.fillRect(fx(Math.max(10,s.fn*0.8)),T,fx(Math.min(4000,s.fn*Math.SQRT2))-fx(Math.max(10,s.fn*0.8)),B-T);
+  c.fillStyle=rgba(C('--sound'),.08);c.fillRect(fx(1000),T,fx(4000)-fx(1000),B-T);
+  c.font='600 10.5px '+C('--mono');c.fillStyle=C('--warn');c.fillText('RESONANCIA',fx(s.fn*0.8)+4,T+14);c.fillStyle=C('--sound');c.fillText('LLUVIA',fx(1000)+6,T+14);
+  // grilla
+  c.strokeStyle=C('--line');c.lineWidth=1;c.fillStyle=C('--muted');c.font='500 11.5px '+C('--mono');
+  [10,30,100,300,1000,4000].forEach(f=>{c.beginPath();c.moveTo(fx(f),T);c.lineTo(fx(f),B);c.stroke();const lb=f>=1000?nf(f/1000)+' kHz':f+' Hz';c.fillText(lb,fx(f)-c.measureText(lb).width/2,B+18)});
+  [0.01,0.1,1,10].forEach(v=>{c.beginPath();c.moveTo(L,ty(v));c.lineTo(R,ty(v));c.stroke();const lb=String(v).replace('.',',');c.fillText(lb,L-8-c.measureText(lb).width,ty(v)+4)});
+  c.strokeStyle=C('--dim');c.setLineDash([5,5]);c.beginPath();c.moveTo(L,ty(1));c.lineTo(R,ty(1));c.stroke();c.setLineDash([]);
+  // área y curva
+  const pts=[];for(let i=0;i<=360;i++){const f=10*Math.pow(400,i/360);pts.push([fx(f),ty(TR(f,s.fn,s.z))])}
+  const g=c.createLinearGradient(0,T,0,B);g.addColorStop(0,rgba(C('--leaf'),.35));g.addColorStop(1,rgba(C('--leaf'),0));
+  c.fillStyle=g;c.beginPath();c.moveTo(pts[0][0],B);pts.forEach(p=>c.lineTo(p[0],p[1]));c.lineTo(pts[pts.length-1][0],B);c.fill();
+  c.shadowColor=C('--leaf');c.shadowBlur=12;c.strokeStyle=C('--leaf');c.lineWidth=3;c.beginPath();pts.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.stroke();c.shadowBlur=0;
+  // marcador
+  const x=fx(s.f),y=ty(TR(s.f,s.fn,s.z));c.strokeStyle=rgba(C('--sound'),.5);c.setLineDash([3,4]);c.beginPath();c.moveTo(x,B);c.lineTo(x,y);c.stroke();c.setLineDash([]);
+  const pulse=RM?0:(Math.sin(t/250)+1)*3;c.fillStyle=rgba(C('--sound'),.25);c.beginPath();c.arc(x,y,10+pulse,0,7);c.fill();c.fillStyle=C('--sound');c.beginPath();c.arc(x,y,6,0,7);c.fill();
+  c.fillStyle=C('--muted');c.font='500 11.5px '+C('--body');c.save();c.translate(16,(T+B)/2+50);c.rotate(-Math.PI/2);c.fillText('Transmisibilidad TR (escala log)',0,0);c.restore();
+  c.fillStyle=C('--ink');c.font='700 14px '+C('--display');c.fillText('fₙ = '+nf(s.fn)+' Hz',fx(s.fn)+8,ty(TR(s.fn,s.fn,s.z))-6);}
+['l-E','l-A','l-e','l-m','l-z','l-f'].forEach(id=>$(id).addEventListener('input',updLl));
+
+/* ===== 03 dB ===== */
+function updDb(){const b=+$('s-b').value,d=+$('s-d').value;$('o-sb').textContent=b+' dB';$('o-sd').textContent='−'+d+' dB';
+  const I1=1e-12*10**(b/10),I2=I1*10**(-d/10);const sci=x=>{const e=Math.floor(Math.log10(x));return nf(x/10**e,1)+'×10<sup>'+e+'</sup>'};
+  $('r-s1').innerHTML=sci(I1)+'<small>W/m²</small>';$('r-s2').innerHTML=sci(I2)+'<small>W/m²</small>';$('r-s3').innerHTML=nf(10**(d/10),d<10?1:0)+'<small>veces</small>';$('r-s4').innerHTML=nf(100*2**(-d/10))+'<small>%</small>';}
+function drawDb(t){const cv=$('cv-db');if(cv.closest('[hidden]'))return;const {c,w,h}=ctx(cv);const b=+$('s-b').value,d=+$('s-d').value;
+  const L=40,R=w-40,x=v=>L+(R-L)*(v-20)/(100-20);
+  // barras tipo ecualizador
+  const bars=Math.floor((R-L)/9);for(let i=0;i<bars;i++){const v=20+80*i/bars;const xx=L+i*9;const on1=v<=b,on2=v<=b-d;
+    const hh=(h*0.42)*(0.25+0.75*(v-20)/80)*(RM?1:(0.92+0.08*Math.sin(t/180+i*0.5)));
+    c.fillStyle=on2?C('--leaf'):(on1?rgba(C('--warn'),.85):C('--line'));c.fillRect(xx,h*0.62-hh,6,hh)}
+  c.fillStyle=C('--muted');c.font='500 11.5px '+C('--mono');
+  [[30,'susurro'],[50,'oficina'],[70,'calle'],[90,'moto cerca']].forEach(([v,tx])=>{c.fillText(v+' dB',x(v)-14,h*0.62+20);c.fillStyle=C('--dim');c.fillText(tx,x(v)-14,h*0.62+36);c.fillStyle=C('--muted')});
+  c.font='700 15px '+C('--display');c.fillStyle=C('--warn');c.fillText('Hoy: '+b+' dB',L,28);c.fillStyle=C('--leaf');const s2='Con el techo: '+(b-d)+' dB';c.fillText(s2,R-c.measureText(s2).width,28);}
+['s-b','s-d'].forEach(id=>$(id).addEventListener('input',updDb));
+
+/* ===== 04 calor ===== */
+function updHeat(){const a=+$('q-a').value,e=+$('q-e').value/100,v=$('q-v').checked;$('o-qa').textContent=nf(a,2);$('o-qe').textContent=nf(e*100,1)+' cm';
+  const b=simple(a*G,0.2,R0),cur=roof(a,e,v);$('r-q0').innerHTML=nf(b.Q,2)+'<small>kJ/s</small>';$('r-q1').innerHTML=nf(cur.Q,2)+'<small>kJ/s</small>';$('r-q2').innerHTML='−'+nf(100*(1-cur.Q/b.Q))+'<small>%</small>';$('r-q3').innerHTML=nf(cur.Ts)+'<small>°C</small>'}
+function drawHeat(){const cv=$('cv-heat');if(cv.closest('[hidden]'))return;const {c,w,h}=ctx(cv);const a=+$('q-a').value,e=+$('q-e').value/100,v=$('q-v').checked;
+  const L=56,R=w-20,T=34,B=h-44,fx=x=>L+(R-L)*(x-0.3)/0.6,fy=q=>B-(B-T)*q/13;
+  c.strokeStyle=C('--line');c.fillStyle=C('--muted');c.font='500 11.5px '+C('--mono');c.lineWidth=1;
+  [0,3,6,9,12].forEach(q=>{c.beginPath();c.moveTo(L,fy(q));c.lineTo(R,fy(q));c.stroke();c.fillText(q,L-20,fy(q)+4)});
+  [0.3,0.4,0.5,0.6,0.7,0.8,0.9].forEach(x=>{const lb=String(x).replace('.',',');c.fillText(lb,fx(x)-10,B+18)});
+  c.fillText('absorción solar de la lámina α →',L,B+36);
+  const line=(fn,col,glow)=>{c.strokeStyle=col;c.lineWidth=glow?3.4:2.4;if(glow){c.shadowColor=col;c.shadowBlur=12}c.beginPath();for(let i=0;i<=60;i++){const x=0.3+0.6*i/60;const y=fy(fn(x));i?c.lineTo(fx(x),y):c.moveTo(fx(x),y)}c.stroke();c.shadowBlur=0};
+  const g=c.createLinearGradient(0,T,0,B);g.addColorStop(0,rgba(C('--warn'),.18));g.addColorStop(1,rgba(C('--warn'),0));c.fillStyle=g;c.beginPath();c.moveTo(fx(0.3),B);for(let i=0;i<=60;i++){const x=0.3+0.6*i/60;c.lineTo(fx(x),fy(simple(x*G,0.2,R0).Q))}c.lineTo(fx(0.9),B);c.fill();
+  line(x=>simple(x*G,0.2,R0).Q,C('--warn'),false);
+  line(x=>roof(x,e,v).Q,C('--leaf'),true);
+  const px=fx(a);c.strokeStyle=C('--dim');c.setLineDash([4,5]);c.beginPath();c.moveTo(px,T);c.lineTo(px,B);c.stroke();c.setLineDash([]);
+  [[simple(a*G,0.2,R0).Q,C('--warn')],[roof(a,e,v).Q,C('--leaf')]].forEach(([q,col])=>{c.fillStyle=col;c.beginPath();c.arc(px,fy(q),6,0,7);c.fill()});
+  c.font='700 14px '+C('--display');c.fillStyle=C('--warn');c.fillText('Techo actual',L+8,T-12);c.fillStyle=C('--leaf');c.fillText('Tu techo',L+120,T-12);c.fillStyle=C('--muted');c.font='500 12px '+C('--body');c.fillText('kJ/s',L-44,T-12);}
+['q-a','q-e','q-v'].forEach(id=>$(id).addEventListener('input',updHeat));
+
+/* ===== 05 presupuesto ===== */
+function budget(){const a=+$('b-a').value,F=+$('b-f').value,pay=$('b-l').checked,s=a/50,K=Math.ceil;const bultos=K(0.24*a*F/25);
+  const rows=[['g','Fibra de coco','coco'],
+    ['Estopa de coco (≈ '+nf(26*a)+' cocos)','lote',0,'Residuo','coco'],
+    ['Transporte de la estopa en motocarro',K(4*s)+' viajes',K(4*s)*30000,'Supuesto','coco'],
+    ['Caneca usada de 55 galones'+(F>1?' (compartida)':''),'1',50000/F,'Supuesto','coco'],
+    ['Mazo y peine de clavos'+(F>1?' (compartidos)':''),'1',30000/F,'Supuesto','coco'],
+    ['Ácido bórico, bulto de 25 kg'+(F>1?' (compartido)':''),bultos+' bulto',bultos*210000/F,'Infoagro','coco'],
+    ['Guantes y tapabocas','2',24000,'Supuesto','coco'],
+    ['Costales reusados',K(80*s)+'',K(80*s)*800,'Supuesto','coco'],
+    ['g','Bandas de llanta','llanta'],
+    ['Llantas desechadas',K(2*s)+'',0,'Residuo','llanta'],
+    ['Cuchilla y sacabocado'+(F>1?' (compartidos)':''),'1',45000/F,'Supuesto','llanta'],
+    ['Tornillos 12 × 2" con arandela, caja de 100',K(3*s)+'',K(3*s)*55000,'Homecenter','llanta'],
+    ['g','Instalación y ventilación','inst'],
+    ['Alambre galvanizado cal. 18',K(3*s)+' kg',K(3*s)*15900,'Falabella','inst'],
+    ['Malla anti-insectos, rollo de 30 m',K(a/60)+'',K(a/60)*40000,'Supuesto','inst'],
+    ['Tacos de madera reciclada','lote',0,'Residuo','inst'],
+    ['Transporte de ferretería','1',30000,'Supuesto','inst']];
+  const cat={coco:0,llanta:0,inst:0};let sub=0;rows.forEach(r=>{if(r[0]!=='g'){sub+=r[2];cat[r[4]]+=r[2]}});const imp=0.1*sub,jor=12*s+1+5*s,lab=pay?jor*80000:0;
+  return {a,rows,cat,sub,imp,jor,lab,total:sub+imp+lab}}
+function updBud(){const b=budget();$('o-ba').textContent=b.a+' m²';$('o-bf').textContent=$('b-f').value;
+  const tb=$('b-tab').tBodies[0];tb.innerHTML='';const add=(cells,cls)=>{const tr=document.createElement('tr');if(cls)tr.className=cls;cells.forEach((x,i)=>{const td=document.createElement('td');if(i===1||i===2)td.className='n';td.innerHTML=x;tr.appendChild(td)});tb.appendChild(tr)};
+  b.rows.forEach(r=>{if(r[0]==='g')add([r[1],'','',''],'g');else add([r[0],r[1],cop(r[2]),'<span class="pill'+(r[3]==='Residuo'?' free':'')+'">'+r[3]+'</span>'])});
+  add(['Subtotal materiales','',cop(b.sub),''],'t');add(['Imprevistos (10 %)','',cop(b.imp),'']);if(b.lab)add(['Mano de obra ('+nf(b.jor,1)+' jornales)','',cop(b.lab),'<span class="pill">Supuesto</span>']);add(['TOTAL POR VIVIENDA','',cop(b.total),''],'t');
+  $('r-b1').textContent=cop(b.total);$('r-b2').textContent=cop(b.total/b.a);$('r-b3').textContent=cop(b.total/120);
+  const parts=[['Fibra de coco',b.cat.coco,'--coco'],['Bandas de llanta',b.cat.llanta,'--leaf'],['Instalación',b.cat.inst,'--sound'],['Imprevistos',b.imp,'--dim']];if(b.lab)parts.push(['Mano de obra',b.lab,'--warn']);
+  $('b-leg').innerHTML=parts.map(p=>`<div><span><i style="--c:var(${p[2]})"></i>${p[0]}</span><b>${cop(p[1])}</b></div>`).join('');drawDonut(parts,b.total)}
+function drawDonut(parts,total){const cv=$('donut');if(cv.closest('[hidden]'))return;const {c,w,h}=ctx(cv);const cx=w/2,cy=h/2,r=Math.min(w,h)/2-8;let a0=-Math.PI/2;
+  parts.forEach(p=>{const a1=a0+2*Math.PI*p[1]/total;c.strokeStyle=C(p[2]);c.lineWidth=r*0.32;c.beginPath();c.arc(cx,cy,r*0.82,a0+0.01,a1-0.01);c.stroke();a0=a1});
+  c.fillStyle=C('--muted');c.font='500 11px '+C('--mono');c.textAlign='center';c.fillText('TOTAL',cx,cy-6);c.fillStyle=C('--ink');c.font='700 '+Math.round(r*0.2)+'px '+C('--display');c.fillText(cop(total),cx,cy+r*0.16);c.textAlign='left'}
+['b-a','b-f','b-l'].forEach(id=>$(id).addEventListener('input',updBud));
+
+/* ===== vistas y ciclo ===== */
+const views=['camara','llanta','ruido','calor','costos'];
+function show(){let v=(location.hash||'#camara').slice(1);if(!views.includes(v))v='camara';document.querySelectorAll('[data-view]').forEach(s=>s.hidden=s.dataset.view!==v);
+  document.querySelectorAll('nav a').forEach(a=>a.setAttribute('aria-current',a.getAttribute('href')==='#'+v?'page':'false'));updAll()}
+function updAll(){updHero();updCam();updLl();updDb();updHeat();updBud()}
+window.addEventListener('hashchange',show);
+window.addEventListener('resize',()=>updBud());
+function loop(t){drawHero(t);drawCam(t);drawTr(t);drawDb(t);drawHeat(t);requestAnimationFrame(loop)}
+show();requestAnimationFrame(loop);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>updBud());
+})();
+</script>
+</body>
+</html>
